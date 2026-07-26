@@ -1,0 +1,39 @@
+﻿services:
+  - type: web
+    name: ecowaste-backend
+    runtime: java
+    buildCommand: ./mvnw package -DskipTests
+    startCommand: java -jar target/*.jar
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      - key: DB_HOST
+        fromDatabase:
+          name: ecowaste-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: ecowaste-db
+          property: port
+      - key: DB_NAME
+        fromDatabase:
+          name: ecowaste-db
+          property: database
+      - key: DB_USER
+        fromDatabase:
+          name: ecowaste-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: ecowaste-db
+          property: password
+      - key: JWT_SECRET
+        generateValue: true
+      - key: GEMINI_API_KEY
+        sync: false
+
+databases:
+  - name: ecowaste-db
+    databaseName: smart_waste
+    user: root
+    plan: free

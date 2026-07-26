@@ -1,0 +1,38 @@
+﻿# Maven / Java
+target/
+*.class
+*.jar
+*.war
+!.mvn/wrapper/maven-wrapper.jar
+
+# Spring Boot secrets
+application-local.properties
+.env
+
+# Node / Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.local
+frontend/.env.production
+
+# MySQL local data
+mysql-data/
+
+# Uploads (user-generated content)
+uploads/
+
+# IDE / OS
+.idea/
+*.iml
+.vscode/
+.DS_Store
+Thumbs.db
+*.log
+logs/
+
+# Misc
+*.zip
+project.zip
+query
+test_cache.py
