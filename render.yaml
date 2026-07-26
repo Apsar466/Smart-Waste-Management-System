@@ -1,9 +1,8 @@
-﻿services:
+services:
   - type: web
     name: ecowaste-backend
-    runtime: java
-    buildCommand: ./mvnw package -DskipTests
-    startCommand: java -jar target/*.jar
+    env: docker
+    dockerfilePath: ./Dockerfile
     envVars:
       - key: SPRING_PROFILES_ACTIVE
         value: prod
