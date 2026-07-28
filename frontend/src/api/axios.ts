@@ -1,11 +1,7 @@
 import axios from 'axios';
 
-// Single source of truth for API base URL — must be set in .env
-const BASE_URL = import.meta.env.VITE_API_BASE_URL;
-
-if (!BASE_URL) {
-  throw new Error('VITE_API_BASE_URL is not set. Add it to your .env file.');
-}
+// Single source of truth for API base URL — defaults to production backend if VITE_API_BASE_URL is missing
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://ecowaste-backend-4jll.onrender.com/api';
 
 export const axiosInstance = axios.create({
   baseURL: BASE_URL,
