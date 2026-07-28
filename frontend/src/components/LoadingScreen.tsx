@@ -20,29 +20,25 @@ export function LoadingScreen({ onComplete }: LoadingScreenProps) {
   const [progress, setProgress] = useState(0);
   const [logs, setLogs] = useState<string[]>([]);
   const [done, setDone] = useState(false);
-
   useEffect(() => {
     let step = 0;
-    let elapsed = 0;
-
     const runStep = () => {
       if (step >= bootSequence.length) {
         setDone(true);
-        setTimeout(onComplete, 600);
+        setTimeout(onComplete, 300);
         return;
       }
       const current = bootSequence[step];
       setCurrentStep(step);
       setLogs(prev => [...prev, current.text]);
       setProgress(Math.round(((step + 1) / bootSequence.length) * 100));
-      elapsed += current.delay;
       step++;
       setTimeout(runStep, current.delay);
     };
 
-    setTimeout(runStep, 300);
-  }, [onComplete]);
-
+    const timer = setTimeout(runStep, 100);
+    return () => clearTimeout(timer);
+  }, []); // Run ONCE on mount
   return (
     <AnimatePresence>
       {!done && (
@@ -64,7 +60,7 @@ export function LoadingScreen({ onComplete }: LoadingScreenProps) {
                   animationDuration: `${10 + Math.random() * 10}s`,
                 }}
                 animate={{
-                  y: [window.innerHeight, -50],
+                  y: [typeof window !== 'undefined' ? window.innerHeight : 800, -50],
                   opacity: [0, 0.6, 0],
                 }}
                 transition={{
