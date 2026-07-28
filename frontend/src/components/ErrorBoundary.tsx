@@ -29,27 +29,22 @@ export class ErrorBoundary extends Component<Props, State> {
   public render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen flex items-center justify-center bg-[#020617] p-6 font-sans">
-          <div className="w-full max-w-lg p-8 backdrop-blur-md bg-slate-900/60 border border-red-500/20 rounded-3xl shadow-glow-sm text-center">
-            <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-5 text-red-500 border border-red-500/20">
-              <span className="text-2xl">⚠️</span>
-            </div>
-            <h1 className="font-heading text-2xl font-bold text-white mb-2">System Interruption</h1>
-            <p className="text-sm text-gray-400 mb-6">
-              A runtime component exception has occurred. The error details have been logged.
+        <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#020617', padding: '24px', fontFamily: 'sans-serif' }}>
+          <div style={{ width: '100%', maxWidth: '560px', background: 'rgba(15,23,42,0.95)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '24px', padding: '40px', textAlign: 'center' }}>
+            <div style={{ fontSize: '40px', marginBottom: '16px' }}>⚠️</div>
+            <h1 style={{ color: '#fff', fontSize: '22px', fontWeight: 700, marginBottom: '12px' }}>Application Error</h1>
+            <p style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '20px' }}>
+              Something went wrong loading the application. Check the error details below.
             </p>
-            <div className="text-left font-mono text-[11px] bg-black/60 p-4 rounded-2xl max-h-56 overflow-y-auto mb-6 border border-gray-800 text-red-400 leading-relaxed">
-              <p className="font-bold mb-2 text-red-500">{this.state.error?.toString()}</p>
-              <pre className="whitespace-pre-wrap text-gray-500">{this.state.errorInfo?.componentStack}</pre>
+            <div style={{ background: '#000', borderRadius: '12px', padding: '16px', marginBottom: '20px', textAlign: 'left', maxHeight: '200px', overflowY: 'auto', border: '1px solid #1e293b' }}>
+              <p style={{ color: '#f87171', fontSize: '12px', fontFamily: 'monospace', wordBreak: 'break-all', marginBottom: '8px' }}>{this.state.error?.toString()}</p>
+              <pre style={{ color: '#64748b', fontSize: '11px', fontFamily: 'monospace', whiteSpace: 'pre-wrap' }}>{this.state.errorInfo?.componentStack}</pre>
             </div>
             <button
-              onClick={() => {
-                this.setState({ hasError: false, error: null, errorInfo: null });
-                window.location.reload();
-              }}
-              className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-full font-semibold transition-all duration-300 shadow-glow-sm"
+              onClick={() => { window.location.reload(); }}
+              style={{ width: '100%', padding: '12px', background: '#059669', color: '#fff', border: 'none', borderRadius: '999px', fontWeight: 600, cursor: 'pointer', fontSize: '14px' }}
             >
-              Reinitialize Application
+              Reload Application
             </button>
           </div>
         </div>

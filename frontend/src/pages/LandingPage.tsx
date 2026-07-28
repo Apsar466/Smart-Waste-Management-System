@@ -1,32 +1,53 @@
-import { HeroSection } from '@/components/features/HeroSection';
-import { FeaturesSection } from '@/components/features/FeaturesSection';
-import { HowItWorksSection } from '@/components/features/HowItWorksSection';
-import { AISection } from '@/components/features/AISection';
-import { ImpactSection } from '@/components/features/ImpactSection';
-import { ContactSection } from '@/components/features/ContactSection';
+import { Suspense, lazy } from 'react';
 import { Github, Recycle } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { HeroSection } from '@/components/features/HeroSection';
+
+// Lazy load all sections so a crash in one doesn't blank the whole page
+const FeaturesSection = lazy(() => import('@/components/features/FeaturesSection').then(m => ({ default: m.FeaturesSection })));
+const HowItWorksSection = lazy(() => import('@/components/features/HowItWorksSection').then(m => ({ default: m.HowItWorksSection })));
+const AISection = lazy(() => import('@/components/features/AISection').then(m => ({ default: m.AISection })));
+const ImpactSection = lazy(() => import('@/components/features/ImpactSection').then(m => ({ default: m.ImpactSection })));
+const ContactSection = lazy(() => import('@/components/features/ContactSection').then(m => ({ default: m.ContactSection })));
+
+function SectionFallback() {
+  return (
+    <div className="w-full py-24 flex items-center justify-center">
+      <div className="w-8 h-8 rounded-full border-4 border-emerald-500 border-t-transparent animate-spin" />
+    </div>
+  );
+}
 
 export function LandingPage() {
   return (
     <div className="bg-white dark:bg-slate-950 overflow-hidden min-h-screen text-slate-900 dark:text-slate-100">
-      {/* 1. Clean Hero Section with 3D Holographic Core */}
+      {/* 1. Hero Section */}
       <HeroSection />
 
       {/* 2. Core Capabilities */}
-      <FeaturesSection />
+      <Suspense fallback={<SectionFallback />}>
+        <FeaturesSection />
+      </Suspense>
 
       {/* 3. Timeline Process */}
-      <HowItWorksSection />
+      <Suspense fallback={<SectionFallback />}>
+        <HowItWorksSection />
+      </Suspense>
 
       {/* 4. Live Gemini AI Preview Console */}
-      <AISection />
+      <Suspense fallback={<SectionFallback />}>
+        <AISection />
+      </Suspense>
 
       {/* 5. Real-Time Impact Counters */}
-      <ImpactSection />
+      <Suspense fallback={<SectionFallback />}>
+        <ImpactSection />
+      </Suspense>
 
       {/* 6. Contact Section */}
-      <ContactSection />
+      <Suspense fallback={<SectionFallback />}>
+        <ContactSection />
+      </Suspense>
 
       {/* Clean Footer */}
       <footer className="border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 py-12 relative z-10">
@@ -52,7 +73,7 @@ export function LandingPage() {
           <div className="flex items-center gap-4 text-xs text-slate-500 font-mono">
             <span>&copy; {new Date().getFullYear()} EcoWaste AI Platform.</span>
             <a
-              href="https://github.com"
+              href="https://github.com/Apsar466/Smart-Waste-Management-System"
               target="_blank"
               rel="noreferrer"
               className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors flex items-center gap-1"
