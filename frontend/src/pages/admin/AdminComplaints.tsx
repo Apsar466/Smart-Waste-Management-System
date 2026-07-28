@@ -107,7 +107,7 @@ export function AdminComplaints() {
               <tbody className="divide-y divide-slate-800/40 text-slate-300 text-xs">
                 {filteredComplaints.map((c: any) => {
                   const relativeUrl = c.imageUrl?.replace(/^\/api/, '') || '';
-                  const absoluteUrl = `http://localhost:8080/api${relativeUrl}`;
+                  const absoluteUrl = `${import.meta.env.VITE_API_BASE_URL || 'https://ecowaste-backend-4jll.onrender.com/api'}${relativeUrl}`;
 
                   return (
                     <tr key={c.id} className="hover:bg-slate-850/20 transition-colors">
@@ -175,7 +175,7 @@ export function AdminComplaints() {
                 {selectedComplaint.imageUrl && (
                   <div className="w-full h-48 rounded-xl overflow-hidden bg-slate-950 border border-slate-850 mb-4">
                     <img
-                      src={`http://localhost:8080/api${selectedComplaint.imageUrl.replace(/^\/api/, '')}`}
+                      src={`${import.meta.env.VITE_API_BASE_URL || 'https://ecowaste-backend-4jll.onrender.com/api'}${selectedComplaint.imageUrl.replace(/^\/api/, '')}`}
                       alt="Incident location"
                       className="w-full h-full object-cover"
                     />

@@ -125,10 +125,10 @@ export function AdminWasteAnalysis() {
               <tbody className="divide-y divide-slate-800/40 text-slate-300 text-xs">
                 {currentReports.map((r: any) => {
                   const isCache = r.source === 'CACHE';
-                  // Formulate absolute thumbnail paths
+                  // Formulate absolute thumbnail paths using production backend URL
                   const relativeUrl = r.imageUrl?.replace(/^\/api/, '') || '';
-                  const absoluteUrl = `http://localhost:8080/api${relativeUrl}`;
-                  
+                  const absoluteUrl = `${import.meta.env.VITE_API_BASE_URL || 'https://ecowaste-backend-4jll.onrender.com/api'}${relativeUrl}`;
+
                   return (
                     <tr key={r.id} className="hover:bg-slate-850/20 transition-colors">
                       <td className="px-6 py-3">
