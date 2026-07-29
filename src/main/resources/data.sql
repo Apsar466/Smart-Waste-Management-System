@@ -1,6 +1,6 @@
 -- Seed Default Administrator (Password: adminpassword)
 INSERT INTO users (id, full_name, email, password, role, status, created_at)
-SELECT 1, 'System Administrator', 'admin@smartwaste.com', '$2a$10$lb2QXVNH0/.DnANhyee3.OM4WMOiTKUiZLe.MAINAypNO0f0hixj2', 'ADMIN', 'ACTIVE', NOW()
+SELECT 1, 'System Administrator', 'admin@smartwaste.com', '$2b$10$FY1WnLe1sJPMY2exdU6MZetxScuf9Cwm0sHPbCnrouYhH8G9KWZay', 'ADMIN', 'ACTIVE', NOW()
 WHERE NOT EXISTS (SELECT 1 FROM users WHERE id = 1 OR email = 'admin@smartwaste.com');
 
 -- Seed Default Waste Categories
