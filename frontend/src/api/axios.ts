@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { safeStorage } from '@/lib/storage';
 
 // Single source of truth for API base URL — defaults to production backend if VITE_API_BASE_URL is missing
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://ecowaste-backend-4jll.onrender.com/api';
@@ -14,7 +15,7 @@ export const axiosInstance = axios.create({
 // ─── Request interceptor — attach JWT ──────────────────────────────────────
 axiosInstance.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('accessToken');
+    const token = safeStorage.getItem('accessToken');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -31,7 +32,7 @@ axiosInstance.interceptors.response.use(
 
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
-      const refreshToken = localStorage.getItem('refreshToken');
+      const refreshToken = safeStorage.getItem('refreshToken');
 
       if (refreshToken) {
         try {
@@ -40,19 +41,19 @@ axiosInstance.interceptors.response.use(
           });
           const newToken = data.data?.accessToken;
           if (newToken) {
-            localStorage.setItem('accessToken', newToken);
+            safeStorage.setItem('accessToken', newToken);
             originalRequest.headers.Authorization = `Bearer ${newToken}`;
             return axiosInstance(originalRequest);
           }
         } catch {
           // Refresh failed — clear storage and redirect to login
-          localStorage.removeItem('accessToken');
-          localStorage.removeItem('refreshToken');
+          safeStorage.removeItem('accessToken');
+          safeStorage.removeItem('refreshToken');
           window.location.href = '/login';
         }
       } else {
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
+        safeStorage.removeItem('accessToken');
+        safeStorage.removeItem('refreshToken');
         window.location.href = '/login';
       }
     }

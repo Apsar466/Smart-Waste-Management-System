@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { AuthData, User } from '@/types';
 import { userApi } from '@/api/endpoints';
+import { safeStorage } from '@/lib/storage';
 
 interface AuthContextValue {
   user: User | null;
@@ -16,9 +17,9 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(() => localStorage.getItem('accessToken'));
+  const [token, setToken] = useState<string | null>(() => safeStorage.getItem('accessToken'));
   // Only show loading on first mount when we have a stored token to validate
-  const [isLoading, setIsLoading] = useState(() => !!localStorage.getItem('accessToken'));
+  const [isLoading, setIsLoading] = useState(() => !!safeStorage.getItem('accessToken'));
 
   /**
    * login() — called immediately after a successful /auth/login response.
@@ -26,8 +27,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
    * is NO delay before isAuthenticated becomes true and the redirect fires.
    */
   const login = useCallback((authData: AuthData) => {
-    localStorage.setItem('accessToken', authData.accessToken);
-    localStorage.setItem('refreshToken', authData.refreshToken);
+    safeStorage.setItem('accessToken', authData.accessToken);
+    safeStorage.setItem('refreshToken', authData.refreshToken);
     setToken(authData.accessToken);
     // Immediately mark the user as authenticated using the data returned by
     // the login endpoint — no extra round-trip needed.
@@ -42,8 +43,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const logout = useCallback(() => {
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
+    safeStorage.removeItem('accessToken');
+    safeStorage.removeItem('refreshToken');
     setToken(null);
     setUser(null);
     setIsLoading(false);
@@ -55,7 +56,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
    * Sets isLoading=false in finally block so the app never stays locked.
    */
   const refreshUser = useCallback(async () => {
-    const storedToken = localStorage.getItem('accessToken');
+    const storedToken = safeStorage.getItem('accessToken');
     if (!storedToken) {
       setIsLoading(false);
       return;
@@ -65,8 +66,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(res.data.data);
     } catch {
       // Token is invalid / expired — clear auth state silently
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
+      safeStorage.removeItem('accessToken');
+      safeStorage.removeItem('refreshToken');
       setToken(null);
       setUser(null);
     } finally {
