@@ -12,7 +12,14 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&display=swap" rel="stylesheet" />
   </head>
   <body>
-    <div id="root"></div>
+    <!-- Fallback shown if JS doesn't load/mount -->
+    <div id="root">
+      <div id="app-fallback" style="min-height:100vh;background:#020617;color:#34d399;display:flex;align-items:center;justify-content:center;flex-direction:column;font-family:monospace;gap:12px">
+        <div style="width:40px;height:40px;border:3px solid #10b981;border-top-color:transparent;border-radius:50%;animation:spin 1s linear infinite"></div>
+        <p style="margin:0;font-size:14px;letter-spacing:2px">LOADING ECOWASTE AI...</p>
+        <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
