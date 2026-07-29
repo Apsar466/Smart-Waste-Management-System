@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import { useAuth } from '@/store/AuthContext';
 import { authApi } from '@/api/endpoints';
 import { Recycle, Mail, Lock, ArrowRight, ShieldCheck, Sparkles, CheckCircle2, Eye, EyeOff, AlertCircle } from 'lucide-react';
@@ -23,8 +22,6 @@ export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const from = location.state?.from?.pathname || '/dashboard';
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) {
@@ -35,16 +32,21 @@ export function LoginPage() {
     setLoading(true);
     try {
       const res = await authApi.login({ email, password });
-      const authData = res.data.data;
+      const authData = res.data?.data;
+      if (!authData || !authData.accessToken) {
+        throw new Error('Invalid response from server.');
+      }
       login(authData);
       toast.success('Welcome back!');
       
-      // Role-based redirection (handle both 'ADMIN' and 'ROLE_ADMIN' formats)
-      const normalizedRole = authData.role.startsWith('ROLE_') ? authData.role.substring(5) : authData.role;
+      const role = authData.role || 'USER';
+      const normalizedRole = role.startsWith('ROLE_') ? role.substring(5) : role;
       const redirectPath = normalizedRole === 'ADMIN' ? '/admin/dashboard' : '/dashboard';
       navigate(location.state?.from?.pathname || redirectPath, { replace: true });
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Invalid credentials. Please try again.');
+      console.error('Login error:', err);
+      const serverMsg = err.response?.data?.message || err.message || 'Invalid credentials. Please try again.';
+      toast.error(serverMsg);
     } finally {
       setLoading(false);
     }

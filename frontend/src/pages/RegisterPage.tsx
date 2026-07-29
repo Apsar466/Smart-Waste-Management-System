@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import { authApi } from '@/api/endpoints';
-import { Recycle, Mail, Lock, User, ArrowRight, Leaf, Globe, Zap, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { Recycle, Mail, Lock, User, ArrowRight, Leaf, Globe, Zap, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 
 const highlights = [
@@ -26,8 +25,8 @@ export function RegisterPage() {
       toast.error('Passwords do not match.');
       return;
     }
-    if (form.password.length < 8) {
-      toast.error('Password must be at least 8 characters.');
+    if (form.password.length < 6) {
+      toast.error('Password must be at least 6 characters.');
       return;
     }
     setLoading(true);
@@ -36,7 +35,9 @@ export function RegisterPage() {
       toast.success('Account created! Please sign in.');
       navigate('/login');
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Registration failed. Please try again.');
+      console.error('Registration error:', err);
+      const serverMsg = err.response?.data?.message || err.message || 'Registration failed. Please try again.';
+      toast.error(serverMsg);
     } finally {
       setLoading(false);
     }
@@ -96,7 +97,7 @@ export function RegisterPage() {
                   required 
                   value={form.password} 
                   onChange={set('password')} 
-                  placeholder="Min. 8 characters" 
+                  placeholder="Min. 6 characters" 
                   className="input-light pl-11 pr-12" 
                 />
                 <button
