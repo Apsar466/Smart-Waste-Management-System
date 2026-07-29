@@ -9,7 +9,8 @@ export const axiosInstance = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 30000,
+  // Increased to 60s to handle Render free tier cold starts (can take ~30-50s to wake up)
+  timeout: 60000,
 });
 
 // ─── Request interceptor — attach JWT ──────────────────────────────────────
@@ -29,6 +30,11 @@ axiosInstance.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
+
+    // Improve timeout error message
+    if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+      return Promise.reject(new Error('The server is waking up from sleep. Please wait 30 seconds and try again.'));
+    }
 
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
