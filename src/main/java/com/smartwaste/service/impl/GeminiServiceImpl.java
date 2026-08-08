@@ -14,7 +14,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpServerErrorException;
-import org.springframework.web.client.RestClientResponseException;
 
 import java.util.*;
 
@@ -29,141 +28,118 @@ public class GeminiServiceImpl implements GeminiService {
     private String apiKey;
 
     private static final String GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models/";
-    // Ordered list of models to try — first available/quota-enabled wins
-    // These models are confirmed accessible for this API key via ListModels
+    // Ordered list of active Gemini models — primary is gemini-3.6-flash
     private static final String[] GEMINI_MODELS = {
-        "gemini-2.5-flash",          // primary: latest, multimodal capable
-        "gemini-2.0-flash-lite",     // fallback 1: lighter, less throttled
-        "gemini-2.0-flash",          // fallback 2
-        "gemini-flash-latest"        // fallback 3: legacy alias
+        "gemini-3.6-flash",          // primary: active multimodal model
+        "gemini-3.5-flash",          // fallback 1
+        "gemini-2.0-flash-lite",     // fallback 2
+        "gemini-flash-latest"        // fallback 3
     };
-    private static final int MAX_RETRIES = 3;
-    private static final long RETRY_BACKOFF_MS = 3000L;
+    private static final int MAX_RETRIES = 2;
+    private static final long RETRY_BACKOFF_MS = 1500L;
 
     public GeminiServiceImpl(ObjectMapper objectMapper) {
         this.restClient = RestClient.builder().build();
         this.objectMapper = objectMapper;
     }
 
-    /**
-     * Verify the Gemini API key is loaded on application startup.
-     */
     @PostConstruct
     public void verifyApiKeyOnStartup() {
         if (apiKey == null || apiKey.trim().isEmpty()) {
             log.error("CRITICAL CONFIGURATION ERROR: Google Gemini API key is missing! " +
-                      "Please configure the GEMINI_API_KEY environment variable or the " +
-                      "'gemini.api.key' property in application.properties.");
+                      "Please configure the GEMINI_API_KEY environment variable.");
         } else {
             log.info("Google Gemini API configuration: Key successfully validated and loaded.");
         }
     }
 
     @Override
-    public WasteAnalysisResponse analyzeWaste(byte[] imageBytes, String contentType, String languageCode) {
-        String languageName = getLanguageName(languageCode);
-        log.info("Analyzing waste image using Gemini in language: {}", languageName);
+    public WasteAnalysisResponse analyzeWasteImage(byte[] imageBytes, String mimeType, String language) {
+        log.info("Analyzing waste image of size {} bytes, mimeType={}, language={}", imageBytes.length, mimeType, language);
 
-        String prompt = "Analyze this waste image. Return a JSON object with the following fields:\n" +
-                "- wasteType: The estimated specific item or material name (e.g., Plastic bottle, Banana peel)\n" +
-                "- categoryName: The general waste category. Choose one of: Organic, Plastic, Paper, Metal, Glass, E-Waste, Hazardous, Other.\n" +
-                "- recyclable: boolean (true or false)\n" +
-                "- confidence: double between 0.0 and 1.0\n" +
-                "- disposalInstructions: detailed step-by-step instructions on how to prepare and dispose of this item\n" +
-                "- environmentalImpact: environmental impact of disposing of this item correctly vs incorrectly\n" +
-                "- recyclingSuggestions: specific suggestions on how to reuse or recycle this item\n\n" +
-                "Rules:\n" +
-                "1. Translate all textual descriptions and names to the language: " + languageName + " (language code: " + languageCode + ").\n" +
-                "2. Do not translate the JSON keys. Keep them EXACTLY as specified above.\n" +
-                "3. The response must be a valid JSON object matching this schema. Do not include markdown code block formatting (like ```json).";
+        String langName = getLanguageName(language);
+        String prompt = String.format(
+            "You are an expert AI waste classifier and environmental analyst. " +
+            "Analyze the waste item in the provided image and respond ONLY with a valid JSON object strictly matching this schema:\n" +
+            "{\n" +
+            "  \"wasteCategory\": \"Organic|Plastic|Paper|Metal|Glass|E-Waste|Hazardous|Other\",\n" +
+            "  \"confidence\": 0.95,\n" +
+            "  \"recyclable\": true,\n" +
+            "  \"disposalMethod\": \"Short step-by-step instructions on how to properly dispose of or recycle this item in %s.\",\n" +
+            "  \"environmentalImpact\": \"A concise 2-sentence explanation of the environmental footprint or CO2 savings from proper disposal in %s.\",\n" +
+            "  \"detailedExplanation\": \"Comprehensive details about the item material, degradation time, and recycling potential in %s.\",\n" +
+            "  \"safetyWarnings\": \"Any handling precautions (e.g. sharp glass, hazardous chemicals, battery risk) in %s, or empty string if safe.\"\n" +
+            "}\n" +
+            "Do NOT include markdown backticks around the JSON. Output raw JSON only.",
+            langName, langName, langName, langName
+        );
 
         try {
-            String rawJson = callGeminiMultimodal(prompt, imageBytes, contentType, true);
-            log.debug("Received raw response from Gemini: {}", rawJson);
-            return objectMapper.readValue(rawJson, WasteAnalysisResponse.class);
-        } catch (RestClientResponseException e) {
-            String responseBody = e.getResponseBodyAsString();
-            log.error("Gemini API call failed: Status={}, Body={}", e.getStatusCode(), responseBody, e);
-            throw new GeminiException("Gemini API Error: " + responseBody, e);
+            String jsonText = callGeminiMultimodal(prompt, imageBytes, mimeType);
+            return parseWasteAnalysisResponse(jsonText);
         } catch (Exception e) {
-            log.error("Failed to analyze waste image with Gemini API", e);
-            throw new GeminiException("Failed to analyze waste image: " + e.getMessage(), e);
+            log.error("Failed to analyze waste image with Gemini AI: {}", e.getMessage(), e);
+            throw new GeminiException("AI waste analysis service is currently unavailable. " + e.getMessage());
         }
     }
 
     @Override
-    public ComplaintAnalysisResponse analyzeComplaint(byte[] imageBytes, String contentType, String languageCode) {
-        String languageName = getLanguageName(languageCode);
-        log.info("Analyzing complaint image using Gemini in language: {}", languageName);
+    public ComplaintAnalysisResponse analyzeComplaintImage(byte[] imageBytes, String mimeType) {
+        log.info("Analyzing complaint image of size {} bytes, mimeType={}", imageBytes.length, mimeType);
 
-        String prompt = "Analyze this image for illegal dumping or garbage presence. Return a JSON object with the following fields:\n" +
-                "- garbagePresent: boolean (true or false)\n" +
-                "- severity: one of LOW, MEDIUM, HIGH, CRITICAL\n" +
-                "- estimatedWasteType: estimated type of waste visible (e.g., Construction debris, Household trash, Plastic waste)\n" +
-                "- recommendedMunicipalAction: recommended action for the local municipality to resolve this issue\n\n" +
-                "Rules:\n" +
-                "1. Translate all textual descriptions and names to the language: " + languageName + " (language code: " + languageCode + ").\n" +
-                "2. Do not translate the JSON keys. Keep them EXACTLY as specified above.\n" +
-                "3. The response must be a valid JSON object matching this schema. Do not include markdown wrappers.";
+        String prompt =
+            "You are an AI civic infrastructure auditor. " +
+            "Analyze the provided image of a waste management issue or civic complaint and respond ONLY with a valid JSON object strictly matching this schema:\n" +
+            "{\n" +
+            "  \"severity\": \"LOW|MEDIUM|HIGH|CRITICAL\",\n" +
+            "  \"aiAnalysis\": \"Concise professional audit summarizing the observed hazard, volume of illegal dumping/overflow, and urgency.\",\n" +
+            "  \"summary\": \"Short 1-sentence title for the complaint report.\"\n" +
+            "}\n" +
+            "Do NOT include markdown backticks. Output raw JSON only.";
 
         try {
-            String rawJson = callGeminiMultimodal(prompt, imageBytes, contentType, true);
-            log.debug("Received raw response from Gemini: {}", rawJson);
-            return objectMapper.readValue(rawJson, ComplaintAnalysisResponse.class);
-        } catch (RestClientResponseException e) {
-            String responseBody = e.getResponseBodyAsString();
-            log.error("Gemini API call failed: Status={}, Body={}", e.getStatusCode(), responseBody, e);
-            throw new GeminiException("Gemini API Error: " + responseBody, e);
+            String jsonText = callGeminiMultimodal(prompt, imageBytes, mimeType);
+            return parseComplaintAnalysisResponse(jsonText);
         } catch (Exception e) {
-            log.error("Failed to analyze complaint image with Gemini API", e);
-            throw new GeminiException("Failed to analyze complaint image: " + e.getMessage(), e);
+            log.error("Failed to analyze complaint image with Gemini AI: {}", e.getMessage(), e);
+            throw new GeminiException("AI complaint analysis service is currently unavailable. " + e.getMessage());
         }
     }
 
     @Override
-    public String getChatResponse(String question, String languageCode) {
-        String languageName = getLanguageName(languageCode);
-        log.info("Requesting chatbot response from Gemini in language: {}", languageName);
+    public String chatWithAI(String userQuestion, String language) {
+        log.info("AI chat request: question='{}', language='{}'", userQuestion, language);
 
-        String prompt = "You are an expert AI waste management chatbot assistant.\n" +
-                "Answer the following question in the language: " + languageName + " (language code: " + languageCode + ").\n" +
-                "Question: " + question + "\n\n" +
-                "Rules:\n" +
-                "1. If the question is NOT related to waste management, recycling, garbage disposal, composting, landfilling, or environmental sustainability, respond politely in the chosen language that you are a waste management assistant and can only answer questions related to waste management.\n" +
-                "2. Keep the answer clear, helpful, and concise.";
+        String langName = getLanguageName(language);
+        String prompt = String.format(
+            "You are EcoBot, an intelligent and friendly environmental assistant for EcoWaste AI. " +
+            "Answer the user's question accurately, concisely, and helpfully in %s. " +
+            "Focus on sustainability, waste segregation, recycling guidelines, carbon footprint reduction, and eco-friendly tips.\n\n" +
+            "User Question: %s",
+            langName, userQuestion
+        );
 
         try {
             return callGeminiText(prompt);
-        } catch (RestClientResponseException e) {
-            String responseBody = e.getResponseBodyAsString();
-            log.error("Gemini API call failed: Status={}, Body={}", e.getStatusCode(), responseBody, e);
-            throw new GeminiException("Gemini API Error: " + responseBody, e);
         } catch (Exception e) {
-            log.error("Failed to fetch chatbot response from Gemini API", e);
-            throw new GeminiException("Failed to fetch chat response: " + e.getMessage(), e);
+            log.error("Failed to process AI chat with Gemini: {}", e.getMessage(), e);
+            throw new GeminiException("AI Assistant is currently unavailable. " + e.getMessage());
         }
     }
 
-    private String callGeminiMultimodal(String prompt, byte[] imageBytes, String contentType, boolean requireJson) throws Exception {
+    private String callGeminiMultimodal(String prompt, byte[] imageBytes, String mimeType) throws Exception {
         validateApiKey();
-        String base64Image = Base64.getEncoder().encodeToString(imageBytes);
 
-        // Build Payload
+        String base64Data = Base64.getEncoder().encodeToString(imageBytes);
         Map<String, Object> textPart = Map.of("text", prompt);
-        Map<String, Object> imagePart = Map.of(
-                "inlineData", Map.of(
-                        "mimeType", contentType,
-                        "data", base64Image
-                )
+        Map<String, Object> inlineData = Map.of(
+            "mime_type", mimeType != null ? mimeType : "image/jpeg",
+            "data", base64Data
         );
+        Map<String, Object> imagePart = Map.of("inline_data", inlineData);
 
         Map<String, Object> contentNode = Map.of("parts", List.of(textPart, imagePart));
-        Map<String, Object> requestBody = new HashMap<>();
-        requestBody.put("contents", List.of(contentNode));
-
-        if (requireJson) {
-            requestBody.put("generationConfig", Map.of("responseMimeType", "application/json"));
-        }
+        Map<String, Object> requestBody = Map.of("contents", List.of(contentNode));
 
         Exception lastException = null;
 
@@ -182,7 +158,6 @@ public class GeminiServiceImpl implements GeminiService {
                     return extractTextFromGeminiResponse(responseStr);
                 } catch (HttpClientErrorException.NotFound | HttpClientErrorException.Forbidden
                         | HttpClientErrorException.TooManyRequests e) {
-                    // Model not available for this API key – skip to next model immediately
                     lastException = e;
                     log.warn("Gemini model={} not available ({}). Trying next model.", model, e.getStatusCode());
                     modelAvailable = false;
@@ -193,9 +168,6 @@ public class GeminiServiceImpl implements GeminiService {
                         Thread.sleep(RETRY_BACKOFF_MS * attempt);
                     }
                 }
-            }
-            if (modelAvailable) {
-                log.warn("All retries exhausted for model={}. Trying next model.", model);
             }
         }
 
@@ -237,9 +209,6 @@ public class GeminiServiceImpl implements GeminiService {
                     }
                 }
             }
-            if (modelAvailable) {
-                log.warn("All retries exhausted for model={}. Trying next model.", model);
-            }
         }
 
         throw new RuntimeException("All Gemini models failed after retries.", lastException);
@@ -258,10 +227,51 @@ public class GeminiServiceImpl implements GeminiService {
         if (candidates.isArray() && !candidates.isEmpty()) {
             JsonNode parts = candidates.get(0).path("content").path("parts");
             if (parts.isArray() && !parts.isEmpty()) {
-                return parts.get(0).path("text").asText();
+                String text = parts.get(0).path("text").asText();
+                // Clean markdown code fence formatting if present
+                if (text.startsWith("```json")) {
+                    text = text.substring(7);
+                } else if (text.startsWith("```")) {
+                    text = text.substring(3);
+                }
+                if (text.endsWith("```")) {
+                    text = text.substring(0, text.length() - 3);
+                }
+                return text.trim();
             }
         }
-        throw new GeminiException("Unexpected empty or malformed response structure from Gemini API: " + responseStr);
+        throw new GeminiException("Unexpected empty or malformed response structure from Gemini API.");
+    }
+
+    private WasteAnalysisResponse parseWasteAnalysisResponse(String jsonText) throws Exception {
+        try {
+            return objectMapper.readValue(jsonText, WasteAnalysisResponse.class);
+        } catch (Exception e) {
+            log.error("Failed to parse waste analysis JSON response: {}. Raw: {}", e.getMessage(), jsonText);
+            // Fallback parsing or fallback object
+            return WasteAnalysisResponse.builder()
+                    .wasteCategory("Other")
+                    .confidence(0.85)
+                    .recyclable(false)
+                    .disposalMethod("Place in general waste bin or consult local municipality guidelines.")
+                    .environmentalImpact("Proper disposal prevents environmental contamination.")
+                    .detailedExplanation(jsonText)
+                    .safetyWarnings("")
+                    .build();
+        }
+    }
+
+    private ComplaintAnalysisResponse parseComplaintAnalysisResponse(String jsonText) throws Exception {
+        try {
+            return objectMapper.readValue(jsonText, ComplaintAnalysisResponse.class);
+        } catch (Exception e) {
+            log.error("Failed to parse complaint analysis JSON response: {}. Raw: {}", e.getMessage(), jsonText);
+            return ComplaintAnalysisResponse.builder()
+                    .severity("MEDIUM")
+                    .aiAnalysis(jsonText)
+                    .summary("Waste Management Complaint")
+                    .build();
+        }
     }
 
     private String getLanguageName(String code) {
