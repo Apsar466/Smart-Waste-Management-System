@@ -54,28 +54,28 @@ public class GeminiServiceImpl implements GeminiService {
     }
 
     @Override
-    public WasteAnalysisResponse analyzeWasteImage(byte[] imageBytes, String mimeType, String language) {
-        log.info("Analyzing waste image of size {} bytes, mimeType={}, language={}", imageBytes.length, mimeType, language);
+    public WasteAnalysisResponse analyzeWaste(byte[] imageBytes, String contentType, String languageCode) {
+        log.info("Analyzing waste image of size {} bytes, contentType={}, languageCode={}", imageBytes.length, contentType, languageCode);
 
-        String langName = getLanguageName(language);
+        String langName = getLanguageName(languageCode);
         String prompt = String.format(
             "You are an expert AI waste classifier and environmental analyst. " +
             "Analyze the waste item in the provided image and respond ONLY with a valid JSON object strictly matching this schema:\n" +
             "{\n" +
-            "  \"wasteCategory\": \"Organic|Plastic|Paper|Metal|Glass|E-Waste|Hazardous|Other\",\n" +
-            "  \"confidence\": 0.95,\n" +
+            "  \"wasteType\": \"Plastic Bottle|Paper Box|Aluminum Can|Glass Bottle|Food Waste|E-Waste|Hazardous|General Waste\",\n" +
+            "  \"categoryName\": \"Organic|Plastic|Paper|Metal|Glass|E-Waste|Hazardous|Other\",\n" +
             "  \"recyclable\": true,\n" +
-            "  \"disposalMethod\": \"Short step-by-step instructions on how to properly dispose of or recycle this item in %s.\",\n" +
-            "  \"environmentalImpact\": \"A concise 2-sentence explanation of the environmental footprint or CO2 savings from proper disposal in %s.\",\n" +
-            "  \"detailedExplanation\": \"Comprehensive details about the item material, degradation time, and recycling potential in %s.\",\n" +
-            "  \"safetyWarnings\": \"Any handling precautions (e.g. sharp glass, hazardous chemicals, battery risk) in %s, or empty string if safe.\"\n" +
+            "  \"confidence\": 0.95,\n" +
+            "  \"disposalInstructions\": \"Short step-by-step instructions on how to properly dispose of or recycle this item in %s.\",\n" +
+            "  \"environmentalImpact\": \"A concise explanation of the environmental footprint or CO2 savings from proper disposal in %s.\",\n" +
+            "  \"recyclingSuggestions\": \"Innovative recycling or upcycling ideas for this item in %s.\"\n" +
             "}\n" +
             "Do NOT include markdown backticks around the JSON. Output raw JSON only.",
-            langName, langName, langName, langName
+            langName, langName, langName
         );
 
         try {
-            String jsonText = callGeminiMultimodal(prompt, imageBytes, mimeType);
+            String jsonText = callGeminiMultimodal(prompt, imageBytes, contentType);
             return parseWasteAnalysisResponse(jsonText);
         } catch (Exception e) {
             log.error("Failed to analyze waste image with Gemini AI: {}", e.getMessage(), e);
@@ -84,21 +84,25 @@ public class GeminiServiceImpl implements GeminiService {
     }
 
     @Override
-    public ComplaintAnalysisResponse analyzeComplaintImage(byte[] imageBytes, String mimeType) {
-        log.info("Analyzing complaint image of size {} bytes, mimeType={}", imageBytes.length, mimeType);
+    public ComplaintAnalysisResponse analyzeComplaint(byte[] imageBytes, String contentType, String languageCode) {
+        log.info("Analyzing complaint image of size {} bytes, contentType={}, languageCode={}", imageBytes.length, contentType, languageCode);
 
-        String prompt =
+        String langName = getLanguageName(languageCode);
+        String prompt = String.format(
             "You are an AI civic infrastructure auditor. " +
             "Analyze the provided image of a waste management issue or civic complaint and respond ONLY with a valid JSON object strictly matching this schema:\n" +
             "{\n" +
+            "  \"garbagePresent\": true,\n" +
             "  \"severity\": \"LOW|MEDIUM|HIGH|CRITICAL\",\n" +
-            "  \"aiAnalysis\": \"Concise professional audit summarizing the observed hazard, volume of illegal dumping/overflow, and urgency.\",\n" +
-            "  \"summary\": \"Short 1-sentence title for the complaint report.\"\n" +
+            "  \"estimatedWasteType\": \"Overflowing Bin|Illegal Dumping|Hazardous Waste|Street Litter\",\n" +
+            "  \"recommendedMunicipalAction\": \"Concise municipal action recommendation in %s.\"\n" +
             "}\n" +
-            "Do NOT include markdown backticks. Output raw JSON only.";
+            "Do NOT include markdown backticks. Output raw JSON only.",
+            langName
+        );
 
         try {
-            String jsonText = callGeminiMultimodal(prompt, imageBytes, mimeType);
+            String jsonText = callGeminiMultimodal(prompt, imageBytes, contentType);
             return parseComplaintAnalysisResponse(jsonText);
         } catch (Exception e) {
             log.error("Failed to analyze complaint image with Gemini AI: {}", e.getMessage(), e);
@@ -107,16 +111,16 @@ public class GeminiServiceImpl implements GeminiService {
     }
 
     @Override
-    public String chatWithAI(String userQuestion, String language) {
-        log.info("AI chat request: question='{}', language='{}'", userQuestion, language);
+    public String getChatResponse(String question, String languageCode) {
+        log.info("AI chat request: question='{}', languageCode='{}'", question, languageCode);
 
-        String langName = getLanguageName(language);
+        String langName = getLanguageName(languageCode);
         String prompt = String.format(
             "You are EcoBot, an intelligent and friendly environmental assistant for EcoWaste AI. " +
             "Answer the user's question accurately, concisely, and helpfully in %s. " +
             "Focus on sustainability, waste segregation, recycling guidelines, carbon footprint reduction, and eco-friendly tips.\n\n" +
             "User Question: %s",
-            langName, userQuestion
+            langName, question
         );
 
         try {
@@ -248,15 +252,14 @@ public class GeminiServiceImpl implements GeminiService {
             return objectMapper.readValue(jsonText, WasteAnalysisResponse.class);
         } catch (Exception e) {
             log.error("Failed to parse waste analysis JSON response: {}. Raw: {}", e.getMessage(), jsonText);
-            // Fallback parsing or fallback object
             return WasteAnalysisResponse.builder()
-                    .wasteCategory("Other")
-                    .confidence(0.85)
+                    .wasteType("General Waste")
+                    .categoryName("Other")
                     .recyclable(false)
-                    .disposalMethod("Place in general waste bin or consult local municipality guidelines.")
+                    .confidence(0.85)
+                    .disposalInstructions("Place in general waste bin or consult local municipality guidelines.")
                     .environmentalImpact("Proper disposal prevents environmental contamination.")
-                    .detailedExplanation(jsonText)
-                    .safetyWarnings("")
+                    .recyclingSuggestions("Check local recycling facilities.")
                     .build();
         }
     }
@@ -267,9 +270,10 @@ public class GeminiServiceImpl implements GeminiService {
         } catch (Exception e) {
             log.error("Failed to parse complaint analysis JSON response: {}. Raw: {}", e.getMessage(), jsonText);
             return ComplaintAnalysisResponse.builder()
+                    .garbagePresent(true)
                     .severity("MEDIUM")
-                    .aiAnalysis(jsonText)
-                    .summary("Waste Management Complaint")
+                    .estimatedWasteType("Unsegregated Garbage")
+                    .recommendedMunicipalAction("Dispatch cleanup crew for inspection.")
                     .build();
         }
     }
