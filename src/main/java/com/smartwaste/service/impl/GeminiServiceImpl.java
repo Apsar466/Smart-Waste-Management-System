@@ -46,13 +46,7 @@ public class GeminiServiceImpl implements GeminiService {
     @PostConstruct
     public void verifyApiKeyOnStartup() {
         if (apiKey == null || apiKey.trim().isEmpty()) {
-            try {
-                byte[] decoded = Base64.getDecoder().decode("QVEuQWI4Uk42TEhpcTAxRU50eW1OVm1pZzQxWWRLbnFIN01YUWxpSWE4cXNkTVNvSDFNd3c=");
-                this.apiKey = new String(decoded);
-                log.info("Google Gemini API configuration: Fallback key loaded.");
-            } catch (Exception e) {
-                log.error("Failed to decode Gemini API fallback key", e);
-            }
+            log.warn("GEMINI_API_KEY not set — AI features will use built-in fallback key.");
         } else {
             log.info("Google Gemini API configuration: Key successfully validated and loaded.");
         }
@@ -225,8 +219,15 @@ public class GeminiServiceImpl implements GeminiService {
 
     private void validateApiKey() {
         if (apiKey == null || apiKey.trim().isEmpty()) {
-            log.error("Gemini API key is not configured.");
-            throw new GeminiException("Gemini API key is missing. Please configure 'app.gemini.api-key' in application.properties or set GEMINI_API_KEY environment variable.");
+            // Load built-in fallback key when GEMINI_API_KEY env var is not configured
+            try {
+                byte[] decoded = Base64.getDecoder().decode("QVEuQWI4Uk42TEhpcTAxRU50eW1OVm1pZzQxWWRLbnFIN01YUWxpSWE4cXNkTVNvSDFNd3c=");
+                this.apiKey = new String(decoded);
+                log.info("Gemini API: Using built-in fallback key.");
+            } catch (Exception e) {
+                log.error("Gemini API key is not configured and fallback key decoding failed.", e);
+                throw new GeminiException("Gemini API key is missing. Please set GEMINI_API_KEY environment variable.");
+            }
         }
     }
 
