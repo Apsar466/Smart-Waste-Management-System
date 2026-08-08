@@ -17,6 +17,7 @@ export function LoginPage() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [wakingUp, setWakingUp] = useState(false);
   const [capsLockOn, setCapsLockOn] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -30,24 +31,35 @@ export function LoginPage() {
     }
 
     setLoading(true);
+    setWakingUp(false);
+
+    // Show 'waking up' message after 8s if still waiting (Render cold start)
+    const wakeTimer = setTimeout(() => setWakingUp(true), 8000);
+
     try {
       const res = await authApi.login({ email, password });
+      clearTimeout(wakeTimer);
       const authData = res.data?.data;
       if (!authData || !authData.accessToken) {
         throw new Error('Invalid response from server.');
       }
       login(authData);
       toast.success('Welcome back!');
-      
+
       const role = authData.role || 'USER';
       const normalizedRole = role.startsWith('ROLE_') ? role.substring(5) : role;
       const redirectPath = normalizedRole === 'ADMIN' ? '/admin/dashboard' : '/dashboard';
       navigate(location.state?.from?.pathname || redirectPath, { replace: true });
     } catch (err: any) {
+      clearTimeout(wakeTimer);
       console.error('Login error:', err);
-      const serverMsg = err.response?.data?.message || err.message || 'Invalid credentials. Please try again.';
+      const isTimeout = err.code === 'ECONNABORTED' || err.message?.includes('timeout');
+      const serverMsg = isTimeout
+        ? 'Server took too long to respond. Please try again — it should be faster now!'
+        : err.response?.data?.message || err.message || 'Invalid credentials. Please try again.';
       toast.error(serverMsg);
     } finally {
+      setWakingUp(false);
       setLoading(false);
     }
   };
@@ -186,9 +198,14 @@ export function LoginPage() {
               className="btn-primary w-full py-4 text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-60 mt-2"
             >
               {loading ? (
-                <span className="flex items-center gap-2">
-                  <span className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                  Signing in...
+                <span className="flex flex-col items-center gap-1">
+                  <span className="flex items-center gap-2">
+                    <span className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                    {wakingUp ? 'Server starting up...' : 'Signing in...'}
+                  </span>
+                  {wakingUp && (
+                    <span className="text-xs text-white/70 font-normal">Free server waking up — please wait ~30s</span>
+                  )}
                 </span>
               ) : (
                 <>
