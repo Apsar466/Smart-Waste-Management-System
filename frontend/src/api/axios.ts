@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { safeStorage } from '@/lib/storage';
 
-// Single source of truth for API base URL — defaults to production backend if VITE_API_BASE_URL is missing
+// Default to Render production backend. Override with VITE_API_BASE_URL for local dev.
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://ecowaste-backend-4jll.onrender.com/api';
 
 export const axiosInstance = axios.create({
@@ -9,7 +9,6 @@ export const axiosInstance = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  // Increased to 60s to handle Render free tier cold starts (can take ~30-50s to wake up)
   timeout: 60000,
 });
 

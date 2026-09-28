@@ -1,4 +1,5 @@
 services:
+  # ── Backend: Spring Boot on Docker ──
   - type: web
     name: ecowaste-backend
     env: docker
@@ -11,3 +12,19 @@ services:
         generateValue: true
       - key: GEMINI_API_KEY
         sync: false
+
+  # ── Frontend: Vite React Static Site ──
+  - type: web
+    name: ecowaste-frontend
+    env: static
+    buildCommand: cd frontend && npm install && npm run build
+    staticPublishPath: frontend/dist
+    plan: free
+    headers:
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
